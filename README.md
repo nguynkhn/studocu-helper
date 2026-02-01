@@ -1,5 +1,7 @@
 # Studocu Tools
 
+![Screenshot](screenshot.png)
+
 **Extension giúp tải xuống tài liệu từ Studocu dưới dạng PDF**
 
 ## Tính năng

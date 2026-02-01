@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Studocu Helper",
+  "name": "Studocu Tools",
   "version": "1.0", 
   "permissions": [
     "declarativeNetRequest"
