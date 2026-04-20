@@ -1,42 +1,29 @@
 {
   "manifest_version": 3,
-  "name": "Studocu Tools",
-  "version": "1.1",
-  "permissions": [
-    "declarativeNetRequest"
-  ],
+  "name": "Studotools",
+  "version": "1.2",
+  "permissions": ["cookies"],
   "host_permissions": [
     "*://*.studeersnel.nl/nl/document/*/*",
     "*://*.studocu.com/en/document/*/*",
     "*://*.studocu.id/id/document/*/*",
     "*://*.studocu.vn/vn/document/*/*"
   ],
-  "declarative_net_request": {
-    "rule_resources": [
-      {
-        "id": "ruleset_1",
-        "enabled": true,
-        "path": "rules.json"
-      }
-    ]
+  "background": {
+    "service_worker": "background.js"
   },
   "content_scripts": [
     {
-      "js": ["inject.js"],
+      "js": ["download.js"],
       "matches": [
         "*://*.studeersnel.nl/nl/document/*/*",
         "*://*.studocu.com/en/document/*/*",
         "*://*.studocu.id/id/document/*/*",
-        "*://*.studocu.vn/vn/document/*/*"
+        "*://*.studocu.vn/vn/document/*/*",
+        "*://*.scribd.com/document/*/*"
       ],
-      "all_frames": true,
-      "run_at": "document_end"
-    }
-  ],
-  "web_accessible_resources": [
-    {
-      "resources": ["download.js"],
-      "matches": ["<all_urls>"]
+      "run_at": "document_start",
+      "world": "MAIN"
     }
   ]
 }
