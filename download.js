@@ -1,16 +1,24 @@
 const DOCUMENT_CONTAINER_ID = 'studotools-document-container';
 const DOWNLOAD_BUTTON_ID = 'studotools-download-button';
+const DOWNLOAD_BUTTON_TEXTS = {
+  idle: 'Download as PDF',
+  fetching_document: (loadedPages, totalPages) => `Fetching document (${loadedPages}/${totalPages})`,
+  loading_images: 'Loading images...',
+  loading_fonts: 'Loading fonts...',
+  downloading: 'Downloading...',
+};
 const DOCUMENT_SOURCES = [
   // Studocu
   {
     domainNames: ['studeersnel.nl', 'studocu.com', 'studocu.id', 'studocu.vn'],
     buttonContainerSelector: '.TopbarActions_secondary-actions-wrapper__4u75_',
     buttonSelector: '.Button_button__88E9y',
-    fetchDocument: async () => {
+    fetchDocument: async (progressUpdater) => {
       const { documentAccess, pageDataList, seoData } = window.__NEXT_DATA__.props.pageProps;
       const { url, objectKey, signedQueryParams } = documentAccess;
       const params = signedQueryParams.global;
 
+      progressUpdater.setTotalPages(pageDataList.length);
       const pageRequests = pageDataList.map(async ({ pageHtml, pageNumber, pageHtmlWrapper }) => {
         if (!pageHtml) {
           const pageUrl = `${url}${objectKey}${pageNumber}.page${params}`;
@@ -23,6 +31,7 @@ const DOCUMENT_SOURCES = [
           pageHtml = pageResponseText.replace(backgroundFile, backgroundUrl);
         }
 
+        progressUpdater.increaseLoadedPage();
         return `${pageHtmlWrapper}${pageHtml}</div>`;
       });
       const pageContents = await Promise.all(pageRequests);
@@ -58,9 +67,10 @@ const DOCUMENT_SOURCES = [
     domainNames: ['scribd.com'],
     buttonContainerSelector: '._12sL1I',
     buttonSelector: '.ButtonCore-module_wrapper_MkTb9s',
-    fetchDocument: async () => {
+    fetchDocument: async (progressUpdater) => {
       const { pages, firstVisiblePage } = window.docManager;
 
+      progressUpdater.setTotalPages(pages.length);
       const pageRequests = Object.values(pages).map(async pageData => {
         const { contentUrl, containerElem, origWidth, origHeight } = pageData;
 
@@ -78,18 +88,17 @@ const DOCUMENT_SOURCES = [
         pageContainer.style.width = `${origWidth}px`;
         pageContainer.style.height = `${origHeight}px`;
 
+        progressUpdater.increaseLoadedPage();
         return pageContainer.outerHTML;
       });
-
       const pageContents = await Promise.all(pageRequests);
-      const documentContent = pageContents.join('');
 
       const hydrationTag = document.querySelector('script[data-hypernova-key="doc_page"]');
       const { wordDocument } = JSON.parse(hydrationTag.textContent.replace(/<!--|-->/g, ''));
 
       return {
         title: wordDocument.title,
-        content: documentContent,
+        content: pageContents.join(''),
         width: firstVisiblePage.origWidth,
         height: firstVisiblePage.origHeight,
       };
@@ -99,10 +108,36 @@ const DOCUMENT_SOURCES = [
 
 const domainName = location.hostname.split('.').slice(-2).join('.');
 const documentSource = DOCUMENT_SOURCES.find(source => source.domainNames.includes(domainName));
+let documentInfo;
 
 async function downloadDocument() {
-  if (!document.getElementById(DOCUMENT_CONTAINER_ID)) {
-    const documentInfo = await documentSource.fetchDocument();
+  const downloadButton = document.getElementById(DOWNLOAD_BUTTON_ID);
+  if (!downloadButton) {
+    return;
+  }
+
+  downloadButton.disabled = true;
+  if (!documentInfo || !document.getElementById(DOCUMENT_CONTAINER_ID)) {
+    const progressUpdater = {
+      loadedPages: 0, totalPages: 0,
+      setTotalPages: function (totalPages) {
+        this.totalPages = totalPages;
+        downloadButton.textContent = DOWNLOAD_BUTTON_TEXTS.fetching_document(
+          this.loadedPages, this.totalPages
+        );
+      },
+      increaseLoadedPage: function () {
+        ++this.loadedPages;
+        downloadButton.textContent = DOWNLOAD_BUTTON_TEXTS.fetching_document(
+          this.loadedPages, this.totalPages
+        );
+      },
+    };
+
+    documentInfo = await documentSource.fetchDocument(progressUpdater);
+    const documentContainer = document.createElement('div');
+    documentContainer.id = DOCUMENT_CONTAINER_ID;
+    documentContainer.innerHTML = documentInfo.content;
 
     const styleElement = document.createElement('style');
     styleElement.textContent = `
@@ -132,11 +167,7 @@ async function downloadDocument() {
   }
 }
 `;
-    document.head.append(styleElement);
-
-    const documentContainer = document.createElement('div');
-    documentContainer.id = DOCUMENT_CONTAINER_ID;
-    documentContainer.innerHTML = documentInfo.content;
+    documentContainer.append(styleElement);
     document.body.append(documentContainer);
 
     const images = Array.from(documentContainer.querySelectorAll('img'));
@@ -148,12 +179,22 @@ async function downloadDocument() {
       image.onload = image.onerror = resolve;
     }));
 
+    downloadButton.textContent = DOWNLOAD_BUTTON_TEXTS.loading_images;
     await Promise.all(imagePromises);
+
+    downloadButton.textContent = DOWNLOAD_BUTTON_TEXTS.loading_fonts;
     await document.fonts?.ready;
     await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
   }
 
+  downloadButton.textContent = DOWNLOAD_BUTTON_TEXTS.downloading;
+  const originalTitle = document.title;
+  document.title = documentInfo.title;
   window.print();
+
+  document.title = originalTitle;
+  downloadButton.disabled = false;
+  downloadButton.textContent = DOWNLOAD_BUTTON_TEXTS.idle;
 }
 
 function createDownloadButton() {
@@ -169,7 +210,7 @@ function createDownloadButton() {
   }
 
   downloadButton.id = DOWNLOAD_BUTTON_ID;
-  downloadButton.textContent = 'Download as PDF';
+  downloadButton.textContent = DOWNLOAD_BUTTON_TEXTS.idle;
   downloadButton.disabled = false;
   downloadButton.style.pointerEvents = 'auto';
   downloadButton.style.cursor = 'pointer';
