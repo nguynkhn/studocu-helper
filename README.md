@@ -22,16 +22,15 @@
 
 ## Cách sử dụng
 
-1. Truy cập một tài liệu trên Studocu/Scribd
+1. Truy cập vào một trang tài liệu trên Studocu/Scribd
 2. Nhấp nút **"Download as PDF"** ở bên cạnh nút **"Download"**
-3. Điều chỉnh lựa chọn in trang (nếu cần) rồi lưu file PDF
+3. Chờ trang tải liệu tải xong rồi lưu thành tệp tin PDF
 
 ## Lưu ý
 
-- Tiện ích này chỉ hoạt động trên các trang tài liệu của Studocu/Scribd
-- Nút tải xuống sẽ chỉ xuất hiện khi trang tài liệu đã tải đầy đủ
-- Chất lượng PDF phụ thuộc vào tài liệu gốc trên Studocu/Scribd  (tức là bạn nhìn thấy gì thì sẽ được tải về cái đó).\
-    Nếu tài liệu của bạn bị cắt bớt một đoạn thì có thể điều chỉnh kích cỡ trang (A4 hoặc Letter) và hướng trang (Landscape hoặc Portrait) sao cho phù hợp.
+- Tiện ích này chỉ hoạt động trên các trang tài liệu của Studocu/Scribd.
+- Chất lượng PDF phụ thuộc vào tài liệu gốc trên Studocu/Scribd (tức là bạn nhìn thấy gì thì sẽ nhận cái đó).
+- Công cụ được tạo ra với mục đích học tập và nghiên cứu cá nhân. Vui lòng sử dụng có trách nhiệm và tôn trọng bản quyền.
 
 ## Đóng góp
 
