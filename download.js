@@ -1,116 +1,158 @@
-const DOWNLOAD_BUTTON_ID = "studotools-download-btn";
-const DOCUMENT_CONTAINER_ID = "studotools-document-container";
+const DOCUMENT_CONTAINER_ID = 'studotools-document-container';
+const DOWNLOAD_BUTTON_ID = 'studotools-download-button';
 const DOCUMENT_SOURCES = [
   // Studocu
   {
-    urlRegex: /(^|\.)((studeersnel\.nl)|(studocu\.(com|id|vn)))$/i,
-    buttonContainerSelector: ".TopbarActions_secondary-actions-wrapper__4u75_",
-    buttonSelector: ".Button_button__88E9y",
+    domainNames: ['studeersnel.nl', 'studocu.com', 'studocu.id', 'studocu.vn'],
+    buttonContainerSelector: '.TopbarActions_secondary-actions-wrapper__4u75_',
+    buttonSelector: '.Button_button__88E9y',
     fetchDocument: async () => {
-      const { documentAccess, pageDataList } = window.__NEXT_DATA__.props.pageProps;
+      const { documentAccess, pageDataList, seoData } = window.__NEXT_DATA__.props.pageProps;
       const { url, objectKey, signedQueryParams } = documentAccess;
       const params = signedQueryParams.global;
 
-      const pageRequests = pageDataList.map(async ({ pageNumber, pageHtmlWrapper }) => {
-        const pageUrl = `${url}${objectKey}${pageNumber}.page${params}`;
-        const backgroundFile = `bg${pageNumber.toString(16)}.png`;
-        const backgroundUrl = `${url}${backgroundFile}${params}`;
+      const pageRequests = pageDataList.map(async ({ pageHtml, pageNumber, pageHtmlWrapper }) => {
+        if (!pageHtml) {
+          const pageUrl = `${url}${objectKey}${pageNumber}.page${params}`;
+          const backgroundFile = `bg${pageNumber.toString(16)}.png`;
+          const backgroundUrl = `${url}${backgroundFile}${params}`;
 
-        const pageResponse = await fetch(pageUrl);
-        const pageResponseText = await pageResponse.text();
-        const pageContent = pageResponseText.replace(backgroundFile, backgroundUrl);
+          const pageResponse = await fetch(pageUrl);
+          const pageResponseText = await pageResponse.text();
 
-        return `${pageHtmlWrapper}${pageContent}</div>`;
+          pageHtml = pageResponseText.replace(backgroundFile, backgroundUrl);
+        }
+
+        return `${pageHtmlWrapper}${pageHtml}</div>`;
       });
-
-      const firstImage = document.querySelector('div[data-page-index="0"] img');
-      const scale = firstImage.naturalWidth / firstImage.clientWidth;
-
       const pageContents = await Promise.all(pageRequests);
-      return `
-<div class="p2hv" style="transform:scale(${scale});transform-origin:top left;">
-  <div id="page-container">${pageContents.join("")}</div>
+
+      const firstPage = document.querySelector('div[data-page-index="0"] .page-content');
+      const firstImage = firstPage.querySelector('img.bi');
+      const isHidden = firstPage.style.display == 'none';
+      if (isHidden) {
+        firstPage.style.display = 'block';
+      }
+
+      const scaleX = firstImage.naturalWidth / firstImage.offsetWidth;
+      const scaleY = firstImage.naturalHeight / firstImage.offsetHeight;
+      if (isHidden) {
+        firstPage.style.display = 'none';
+      }
+
+      const documentContent = `
+<div class="p2hv" style="transform:scale(${scaleX},${scaleY});transform-origin:top left;">
+  <div id="page-container">${pageContents.join('')}</div>
 </div>
 `;
+      return {
+        title: seoData.originalTitle,
+        content: documentContent,
+        width: firstImage.naturalWidth,
+        height: firstImage.naturalHeight,
+      };
     },
   },
   // Scribd
   {
-    urlRegex: /(^|\.)scribd\.com$/i,
-    buttonContainerSelector: "._12sL1I",
-    buttonSelector: ".ButtonCore-module_wrapper_MkTb9s",
+    domainNames: ['scribd.com'],
+    buttonContainerSelector: '._12sL1I',
+    buttonSelector: '.ButtonCore-module_wrapper_MkTb9s',
     fetchDocument: async () => {
-      const { pages } = window.docManager;
-      const pageRequests = Object.entries(pages).map(async ([ pageNo, pageData ]) => {
+      const { pages, firstVisiblePage } = window.docManager;
+
+      const pageRequests = Object.values(pages).map(async pageData => {
         const { contentUrl, containerElem, origWidth, origHeight } = pageData;
 
         const pageResponse = await fetch(contentUrl);
         const pageResponseText = await pageResponse.text();
-        const pageEscapedContent = pageResponseText
-          .replace(`window.page${pageNo}_callback([`, "")
-          .replace(/]\);\s*$/, "");
 
-        const pageContent = JSON.parse(pageEscapedContent).replace(
+        const pageEscapedContent = pageResponseText.replace(/^[^(]*\((.*)\);?$/, '$1');
+        const pageContent = JSON.parse(pageEscapedContent)[0].replace(
           /orig="http:\/\/html\.scribd\.com/g,
-          "style=\"display: block;\" src=\"https://html.scribdassets.com"
+          'style="display: block;" src="https://html.scribdassets.com'
         );
 
-        const tempElement = containerElem.cloneNode();
-        tempElement.innerHTML = pageContent;
-        tempElement.style.width = `${origWidth}px`;
-        tempElement.style.height = `${origHeight}px`;
+        const pageContainer = containerElem.cloneNode();
+        pageContainer.innerHTML = pageContent;
+        pageContainer.style.width = `${origWidth}px`;
+        pageContainer.style.height = `${origHeight}px`;
 
-        return tempElement.outerHTML;
+        return pageContainer.outerHTML;
       });
 
       const pageContents = await Promise.all(pageRequests);
-      return pageContents.join("");
+      const documentContent = pageContents.join('');
+
+      const hydrationTag = document.querySelector('script[data-hypernova-key="doc_page"]');
+      const { wordDocument } = JSON.parse(hydrationTag.textContent.replace(/<!--|-->/g, ''));
+
+      return {
+        title: wordDocument.title,
+        content: documentContent,
+        width: firstVisiblePage.origWidth,
+        height: firstVisiblePage.origHeight,
+      };
     },
   },
 ];
-const documentSource = DOCUMENT_SOURCES.find(source => source.urlRegex.test(location.hostname));
-let isDownloading = false;
+
+const domainName = location.hostname.split('.').slice(-2).join('.');
+const documentSource = DOCUMENT_SOURCES.find(source => source.domainNames.includes(domainName));
 
 async function downloadDocument() {
-  if (isDownloading) {
-    return;
+  if (!document.getElementById(DOCUMENT_CONTAINER_ID)) {
+    const documentInfo = await documentSource.fetchDocument();
+
+    const styleElement = document.createElement('style');
+    styleElement.textContent = `
+#${DOCUMENT_CONTAINER_ID} {
+  display: none;
+}
+
+@page {
+  margin: 0;
+  size: ${documentInfo.width}px ${documentInfo.height}px;
+}
+
+@media print {
+  body > *:not(#${DOCUMENT_CONTAINER_ID}) {
+    display: none;
   }
-  isDownloading = true;
 
-  const downloadButton = document.getElementById(DOWNLOAD_BUTTON_ID);
-  downloadButton.textContent = "Fetching document...";
+  #${DOCUMENT_CONTAINER_ID} {
+    display: block;
+  }
 
-  let documentContainer = document.getElementById(DOCUMENT_CONTAINER_ID);
-  if (!documentContainer) {
-    documentContainer = document.createElement("div");
+  #${DOCUMENT_CONTAINER_ID}, #${DOCUMENT_CONTAINER_ID} * {
+    box-shadow: none;
+    page-break-after: always;
+    break-after: always;
+    border: none;
+  }
+}
+`;
+    document.head.append(styleElement);
+
+    const documentContainer = document.createElement('div');
     documentContainer.id = DOCUMENT_CONTAINER_ID;
-    documentContainer.innerHTML = await documentSource.fetchDocument();
+    documentContainer.innerHTML = documentInfo.content;
+    document.body.append(documentContainer);
 
-    document.body.prepend(documentContainer);
+    const images = Array.from(documentContainer.querySelectorAll('img'));
+    const imagePromises = images.map(image => new Promise(resolve => {
+      if (image.complete) {
+        resolve();
+        return;
+      }
+      image.onload = image.onerror = resolve;
+    }));
+
+    await Promise.all(imagePromises);
+    await document.fonts?.ready;
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
   }
 
-  let loadedCount = 0;
-  const images = Array.from(documentContainer.querySelectorAll("img"));
-  const imagePromises = images.map(image => new Promise(resolve => {
-    const _resolve = () => {
-      downloadButton.textContent = `Loading images (${++loadedCount}/${images.length})...`;
-      resolve();
-    };
-
-    if (image.complete) {
-      _resolve();
-      return;
-    }
-    image.onload = image.onerror = _resolve;
-  }))
-  await Promise.all(imagePromises);
-  await document.fonts?.ready;
-
-  downloadButton.textContent = "Downloading...";
-  window.addEventListener("afterprint", () => {
-    isDownloading = false;
-    downloadButton.textContent = "Download as PDF";
-  });
   window.print();
 }
 
@@ -127,49 +169,21 @@ function createDownloadButton() {
   }
 
   downloadButton.id = DOWNLOAD_BUTTON_ID;
-  downloadButton.textContent = "Download as PDF";
+  downloadButton.textContent = 'Download as PDF';
   downloadButton.disabled = false;
-  downloadButton.style.pointerEvents = "auto";
-  downloadButton.style.cursor = "pointer";
+  downloadButton.style.pointerEvents = 'auto';
+  downloadButton.style.cursor = 'pointer';
   downloadButton.onclick = downloadDocument;
 
   buttonContainer.prepend(downloadButton);
 }
 
-const style = document.createElement("style");
-style.textContent = `
-#${DOCUMENT_CONTAINER_ID} {
-    display: none;
-}
-@media print {
-    @page {
-        margin: 0;
-        size: auto;
-    }
-    #${DOCUMENT_CONTAINER_ID} {
-        display: block !important;
-        position: absolute;
-        top: 0;
-        left: 0;
-    }
-    #${DOCUMENT_CONTAINER_ID}, #${DOCUMENT_CONTAINER_ID} * {
-        margin: 0;
-        visibility: visible;
-        box-shadow: none;
-        page-break-after: always;
-        break-after: always;
-        border: none;
-    }
-    body * {
-        visibility: hidden;
-    }
-}
-`;
+window.addEventListener('DOMContentLoaded', () => {
+  if (!documentSource) {
+    return;
+  }
 
-window.addEventListener("DOMContentLoaded", () => {
-  document.body.appendChild(style);
-
-  const observer = new MutationObserver(createDownloadButton);
-  observer.observe(document.body, { childList: true, subtree: true });
+  const domObserver = new MutationObserver(createDownloadButton);
+  domObserver.observe(document.body, { childList: true, subtree: true });
 });
 

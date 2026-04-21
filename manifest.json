@@ -20,7 +20,8 @@
         "*://*.studocu.com/en/document/*/*",
         "*://*.studocu.id/id/document/*/*",
         "*://*.studocu.vn/vn/document/*/*",
-        "*://*.scribd.com/document/*/*"
+        "*://*.scribd.com/document/*/*",
+        "*://*.scribd.com/doc/*/*"
       ],
       "run_at": "document_start",
       "world": "MAIN"
