@@ -70,8 +70,9 @@ const DOCUMENT_SOURCES = [
     fetchDocument: async (progressUpdater) => {
       const { pages, firstVisiblePage } = window.docManager;
 
-      progressUpdater.setTotalPages(pages.length);
-      const pageRequests = Object.values(pages).map(async pageData => {
+      const pageList = Object.values(pages);
+      progressUpdater.setTotalPages(pageList.length);
+      const pageRequests = pageList.map(async pageData => {
         const { contentUrl, containerElem, origWidth, origHeight } = pageData;
 
         const pageResponse = await fetch(contentUrl);
@@ -133,8 +134,8 @@ async function downloadDocument() {
         );
       },
     };
-
     documentInfo = await documentSource.fetchDocument(progressUpdater);
+
     const documentContainer = document.createElement('div');
     documentContainer.id = DOCUMENT_CONTAINER_ID;
     documentContainer.innerHTML = documentInfo.content;
@@ -142,7 +143,7 @@ async function downloadDocument() {
     const styleElement = document.createElement('style');
     styleElement.textContent = `
 #${DOCUMENT_CONTAINER_ID} {
-  display: none;
+  visibility: hidden;
 }
 
 @page {
@@ -155,11 +156,8 @@ async function downloadDocument() {
     display: none;
   }
 
-  #${DOCUMENT_CONTAINER_ID} {
-    display: block;
-  }
-
   #${DOCUMENT_CONTAINER_ID}, #${DOCUMENT_CONTAINER_ID} * {
+    visibility: visible;
     box-shadow: none;
     page-break-after: always;
     break-after: always;
