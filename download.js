@@ -11,10 +11,10 @@ const DOCUMENT_SOURCES = [
   // Studocu
   {
     domainNames: ['studeersnel.nl', 'studocu.com', 'studocu.id', 'studocu.vn'],
-    buttonContainerSelector: '.TopbarActions_secondary-actions-wrapper__4u75_',
-    buttonSelector: '.Button_button__88E9y',
+    buttonContainerSelector: '.TopbarActions-module-scss-module__lzsbvq__secondaryActionsWrapper',
+    buttonSelector: '.Button-module-scss-module__UoECUq__button',
     fetchDocument: async (progressUpdater) => {
-      const { documentAccess, pageDataList, seoData } = window.__NEXT_DATA__.props.pageProps;
+      const { documentAccess, pageDataList } = window.__NEXT_DATA__.props.pageProps;
       const { url, objectKey, signedQueryParams } = documentAccess;
       const params = signedQueryParams.global;
 
@@ -55,7 +55,6 @@ const DOCUMENT_SOURCES = [
 </div>
 `;
       return {
-        title: seoData.originalTitle,
         content: documentContent,
         width: firstImage.naturalWidth,
         height: firstImage.naturalHeight,
@@ -94,11 +93,7 @@ const DOCUMENT_SOURCES = [
       });
       const pageContents = await Promise.all(pageRequests);
 
-      const hydrationTag = document.querySelector('script[data-hypernova-key="doc_page"]');
-      const { wordDocument } = JSON.parse(hydrationTag.textContent.replace(/<!--|-->/g, ''));
-
       return {
-        title: wordDocument.title,
         content: pageContents.join(''),
         width: firstVisiblePage.origWidth,
         height: firstVisiblePage.origHeight,
@@ -186,11 +181,8 @@ async function downloadDocument() {
   }
 
   downloadButton.textContent = DOWNLOAD_BUTTON_TEXTS.downloading;
-  const originalTitle = document.title;
-  document.title = documentInfo.title;
   window.print();
 
-  document.title = originalTitle;
   downloadButton.disabled = false;
   downloadButton.textContent = DOWNLOAD_BUTTON_TEXTS.idle;
 }

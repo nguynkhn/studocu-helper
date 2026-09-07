@@ -1,7 +1,5 @@
 # Studotools
 
-> Extension đã ngừng phát triển. Có thể ghé qua [Studocuhack](https://github.com/danieltyukov/studocuhack) cũng có các tính năng tương tự và được hỗ trợ tốt hơn.
-
 ![Screenshot](screenshot.png)
 
 **Tiện ích giúp tải xuống tài liệu từ Studocu/Scribd dưới dạng PDF**
